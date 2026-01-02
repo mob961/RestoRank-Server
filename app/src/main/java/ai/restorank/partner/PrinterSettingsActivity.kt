@@ -35,7 +35,7 @@ class PrinterSettingsActivity : AppCompatActivity() {
         setContentView(R.layout.activity_printer_settings)
 
         prefs = getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
-        printerService = PrinterService()
+        printerService = PrinterService(this)
 
         initViews()
         loadSettings()
