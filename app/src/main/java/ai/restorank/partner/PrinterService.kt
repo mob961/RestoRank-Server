@@ -1,12 +1,15 @@
 package ai.restorank.partner
 
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.util.Log
 import kotlinx.coroutines.*
 import java.io.OutputStream
 import java.net.InetSocketAddress
 import java.net.Socket
 
-class PrinterService {
+class PrinterService(private val context: Context) {
     companion object {
         private const val TAG = "PrinterService"
         private const val CONNECTION_TIMEOUT = 5000
@@ -27,9 +30,30 @@ class PrinterService {
     private val CUT_PARTIAL = "${GS}V\u0001"
     private val CASH_DRAWER = "${ESC}p\u0000\u0019\u00FA"
 
+    private fun getWifiNetwork(): android.net.Network? {
+        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val networks = cm.allNetworks
+        for (network in networks) {
+            val caps = cm.getNetworkCapabilities(network)
+            if (caps != null && caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
+                return network
+            }
+        }
+        return null
+    }
+
     suspend fun testConnection(ip: String, port: Int = DEFAULT_PORT): Result<Boolean> = withContext(Dispatchers.IO) {
         try {
             val socket = Socket()
+            
+            val wifiNetwork = getWifiNetwork()
+            if (wifiNetwork != null) {
+                wifiNetwork.bindSocket(socket)
+                Log.d(TAG, "Bound socket to WiFi network")
+            } else {
+                Log.w(TAG, "No WiFi network found, using default routing")
+            }
+            
             socket.connect(InetSocketAddress(ip, port), CONNECTION_TIMEOUT)
             socket.close()
             Result.success(true)
@@ -44,6 +68,15 @@ class PrinterService {
         var output: OutputStream? = null
         try {
             socket = Socket()
+            
+            val wifiNetwork = getWifiNetwork()
+            if (wifiNetwork != null) {
+                wifiNetwork.bindSocket(socket)
+                Log.d(TAG, "Bound socket to WiFi network for printing")
+            } else {
+                Log.w(TAG, "No WiFi network found, using default routing")
+            }
+            
             socket.connect(InetSocketAddress(ip, port), CONNECTION_TIMEOUT)
             output = socket.getOutputStream()
             
@@ -91,12 +124,7 @@ class PrinterService {
         return printRaw(ip, port, content.toByteArray(Charsets.ISO_8859_1))
     }
 
-    fun formatKitchenTicket(
-        orderId: String,
-        orderType: String,
-        tableName: String,
-        items: List<OrderItem>
-    ): ByteArray {
+    fun formatKitchenTicket(orderId: String, orderType: String, tableName: String, items: List<OrderItem>): ByteArray {
         val content = buildString {
             append(INIT)
             append(ALIGN_CENTER)
@@ -132,13 +160,7 @@ class PrinterService {
         return content.toByteArray(Charsets.ISO_8859_1)
     }
 
-    fun formatBillReceipt(
-        orderId: String,
-        orderType: String,
-        tableName: String,
-        items: List<OrderItem>,
-        total: String
-    ): ByteArray {
+    fun formatBillReceipt(orderId: String, orderType: String, tableName: String, items: List<OrderItem>, total: String): ByteArray {
         val content = buildString {
             append(INIT)
             append(ALIGN_CENTER)
@@ -174,10 +196,5 @@ class PrinterService {
         return content.toByteArray(Charsets.ISO_8859_1)
     }
 
-    data class OrderItem(
-        val name: String,
-        val quantity: Int,
-        val price: String,
-        val options: List<String>? = null
-    )
+    data class OrderItem(val name: String, val quantity: Int, val price: String, val options: List<String>? = null)
 }
