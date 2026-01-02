@@ -45,7 +45,6 @@ class PrinterService(private val context: Context) {
     suspend fun testConnection(ip: String, port: Int = DEFAULT_PORT): Result<Boolean> = withContext(Dispatchers.IO) {
         try {
             val socket = Socket()
-            
             val wifiNetwork = getWifiNetwork()
             if (wifiNetwork != null) {
                 wifiNetwork.bindSocket(socket)
@@ -53,7 +52,6 @@ class PrinterService(private val context: Context) {
             } else {
                 Log.w(TAG, "No WiFi network found, using default routing")
             }
-            
             socket.connect(InetSocketAddress(ip, port), CONNECTION_TIMEOUT)
             socket.close()
             Result.success(true)
@@ -68,27 +66,18 @@ class PrinterService(private val context: Context) {
         var output: OutputStream? = null
         try {
             socket = Socket()
-            
             val wifiNetwork = getWifiNetwork()
             if (wifiNetwork != null) {
                 wifiNetwork.bindSocket(socket)
-                Log.d(TAG, "Bound socket to WiFi network for printing")
-            } else {
-                Log.w(TAG, "No WiFi network found, using default routing")
             }
-            
             socket.connect(InetSocketAddress(ip, port), CONNECTION_TIMEOUT)
             output = socket.getOutputStream()
-            
             output.write(content)
-            
             if (kickCashDrawer) {
                 output.write(CASH_DRAWER.toByteArray(Charsets.ISO_8859_1))
             }
-            
             output.flush()
             delay(300)
-            
             Result.success(true)
         } catch (e: Exception) {
             Log.e(TAG, "Print failed: ${e.message}")
@@ -120,7 +109,6 @@ class PrinterService(private val context: Context) {
             append("$LF$LF$LF")
             append(CUT_PARTIAL)
         }
-        
         return printRaw(ip, port, content.toByteArray(Charsets.ISO_8859_1))
     }
 
@@ -142,7 +130,6 @@ class PrinterService(private val context: Context) {
             append(ALIGN_LEFT)
             append("Time: ${java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())}$LF")
             append("--------------------------------$LF")
-            
             items.forEach { item ->
                 append(BOLD_ON)
                 append("${item.quantity}x ${item.name}$LF")
@@ -151,12 +138,10 @@ class PrinterService(private val context: Context) {
                     append("   - $opt$LF")
                 }
             }
-            
             append("================================$LF")
             append("$LF$LF$LF")
             append(CUT_PARTIAL)
         }
-        
         return content.toByteArray(Charsets.ISO_8859_1)
     }
 
@@ -175,13 +160,11 @@ class PrinterService(private val context: Context) {
             }
             append("================================$LF")
             append(ALIGN_LEFT)
-            
             items.forEach { item ->
                 append("${item.quantity}x ${item.name}$LF")
                 val itemTotal = (item.price.toDoubleOrNull() ?: 0.0) * item.quantity
                 append("${" ".repeat(20)}$${String.format("%.2f", itemTotal)}$LF")
             }
-            
             append("--------------------------------$LF")
             append(BOLD_ON)
             append("TOTAL: $$total$LF")
@@ -192,7 +175,6 @@ class PrinterService(private val context: Context) {
             append("$LF$LF$LF")
             append(CUT_PARTIAL)
         }
-        
         return content.toByteArray(Charsets.ISO_8859_1)
     }
 
